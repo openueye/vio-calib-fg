@@ -26,7 +26,7 @@
 
 ## 推荐的阅读与实验
 
-- 先看 `results/indoor_dev/report.html`，再从报告中的特征预览定位到三角化和 PnP。
+- 先运行 `scripts/run_indoor_benchmark.py` 生成本地报告，再看 `results/indoor_dev/report.html`，从报告中的特征预览定位到三角化和 PnP。
 - 理解 `tests/test_stereo.py` 的已知三维点投影实验：为什么 PnP 的平移方向与相机移动方向相反？
 - 理解 `tests/test_evaluation.py` 的全局旋转、尺度错误实验：为什么前者应被消除，后者必须保留？
 - 比较两个不重叠的室内片段；固定参数后再看验证片段，保留较差或失败的结果。

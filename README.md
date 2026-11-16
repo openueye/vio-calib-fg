@@ -9,7 +9,7 @@
 
 ## 直接查看
 
-- [室内评测总览](results/indoor_index.html)：点击两个片段名称查看完整报告。
+- 室内评测总览：运行 `scripts/run_indoor_benchmark.py` 后在本地生成 `results/indoor_index.html`，点击两个片段名称查看完整报告（生成物不入库）。
 - [学习路线](LEARNING.md)：数据流、坐标约定、阅读顺序和实验问题。
 - [技术报告](report.md)：运行结果、评测口径和能力边界。
 
