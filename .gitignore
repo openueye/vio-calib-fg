@@ -1,0 +1,16 @@
+# datasets and downloads (large)
+data/
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+env/
+
+# local
+.env
+*.log
+# job-search notes kept local only
+resume_bullets.md
