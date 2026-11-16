@@ -23,17 +23,17 @@
     "status": 1
   },
   "baseline": {
-    "ate_rmse_m": 0.14553130059148411,
+    "ate_rmse_m": 0.046389344428238326,
     "rpe_trans_rmse_m": 0.010125048047950043,
     "rpe_rot_rmse_rad": 0.0038391242550077495
   },
   "calibrated_chain": {
-    "ate_rmse_m": 0.07176631553777725,
+    "ate_rmse_m": 0.04638934442823865,
     "rpe_trans_rmse_m": 0.005267231853841169,
     "rpe_rot_rmse_rad": 0.00032595660103501946
   },
   "fused_graph": {
-    "ate_rmse_m": 0.07352022433917227,
+    "ate_rmse_m": 0.046221572737823804,
     "rpe_trans_rmse_m": 0.0052672318537821325,
     "rpe_rot_rmse_rad": 0.00016340226040024094,
     "optimizer": {
@@ -44,7 +44,7 @@
     }
   },
   "oracle_extrinsic": {
-    "ate_rmse_m": 0.07249433356039173,
+    "ate_rmse_m": 0.04619361155223575,
     "rpe_trans_rmse_m": 0.005221113601148232,
     "rpe_rot_rmse_rad": 0.00016340129857633643,
     "optimizer": {
@@ -55,7 +55,7 @@
     }
   },
   "limitations": [
-    "camera-from-body translation is fixed at zero; visual relative poses alone cannot observe it",
+    "body-from-camera translation is fixed at zero; this prototype does not estimate it",
     "no accelerometer/velocity factor; this is a rotation + visual pose graph, not a full VIO",
     "synthetic data, not EuRoC; no real camera images/feature tracking"
   ]

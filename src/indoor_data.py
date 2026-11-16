@@ -33,7 +33,20 @@ def image_index(path: Path) -> dict[int, Path]:
 class IndoorDataset:
     def __init__(self, root: Path):
         self.root = root / "mav0" if (root / "mav0").is_dir() else root
-        self.cameras = [sensor_yaml(self.root / f"cam{i}" / "sensor.yaml") for i in range(2)]
+        calibration_path = self.root.parent / "dso" / "camchain.yaml"
+        if (self.root / "cam0" / "sensor.yaml").exists():
+            self.cameras = [sensor_yaml(self.root / f"cam{i}" / "sensor.yaml") for i in range(2)]
+            self.calibration_source = "mav0/cam*/sensor.yaml, T_BS"
+        else:
+            # Official TUM VI export stores calibration beside mav0, in Kalibr convention.
+            chain = sensor_yaml(calibration_path)
+            self.cameras = []
+            for i in range(2):
+                camera = dict(chain[f"cam{i}"])
+                camera["T_BS"] = pose_inv(transform(camera["T_cam_imu"]))
+                camera["distortion_coefficients"] = camera["distortion_coeffs"]
+                self.cameras.append(camera)
+            self.calibration_source = str(calibration_path)
         self.images = [image_index(self.root / f"cam{i}") for i in range(2)]
         self.timestamps = np.array(sorted(self.images[0].keys() & self.images[1].keys()), dtype=np.int64)
         if len(self.timestamps) < 2:
@@ -47,20 +60,23 @@ class IndoorDataset:
 
     def groundtruth(self) -> tuple[np.ndarray, np.ndarray]:
         """Load GT only for evaluation, never for visual motion estimation."""
+        imu_gt = self.root.parent / "dso" / "gt_imu.csv"
         for name in ("state_groundtruth_estimate0", "mocap0"):
             directory = self.root / name
             if (directory / "data.csv").exists():
                 break
         else:
             raise FileNotFoundError("No state_groundtruth_estimate0/data.csv or mocap0/data.csv")
-        frame = pd.read_csv(directory / "data.csv", comment="#", header=None)
+        source = imu_gt if imu_gt.exists() else directory / "data.csv"
+        self.groundtruth_source = str(source)
+        frame = pd.read_csv(source, comment="#", header=None)
         ns = frame.iloc[:, 0].to_numpy(dtype=np.int64)
         data = frame.iloc[:, 1:8].to_numpy(dtype=float)
         poses = np.repeat(np.eye(4)[None], len(ns), axis=0)
         poses[:, :3, 3] = data[:, :3]
         # EuRoC-format GT quaternion is w,x,y,z; scipy takes x,y,z,w.
         poses[:, :3, :3] = Rotation.from_quat(data[:, [4, 5, 6, 3]]).as_matrix()
-        if name == "mocap0":
+        if name == "mocap0" and not imu_gt.exists():
             # T_WS -> T_WB: marker sensor S is rigidly attached to IMU/body B.
             calibration = sensor_yaml(directory / "sensor.yaml")
             poses = poses @ pose_inv(transform(calibration["T_BS"]))

@@ -1,6 +1,11 @@
 # datasets and downloads (large)
 data/
 
+# generated indoor benchmark outputs (may embed absolute local paths)
+results/indoor/
+results/indoor_*/
+results/indoor_index.html
+
 # python
 __pycache__/
 *.pyc

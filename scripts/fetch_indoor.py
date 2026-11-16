@@ -26,6 +26,7 @@ def main():
             if offset and response.status != 206:
                 raise RuntimeError("Server did not honor resume; keep the partial file and retry later")
             start, received, last = time.monotonic(), offset, offset
+            expected = offset + int(response.headers["Content-Length"])
             with partial.open("ab" if offset else "wb") as stream:
                 while block := response.read(1024 * 1024):
                     stream.write(block)
@@ -33,6 +34,8 @@ def main():
                     if received - last >= 32 * 1024 * 1024:
                         print(f"{received / 2**20:.0f} MiB, {(received-offset)/2**20/(time.monotonic()-start):.1f} MiB/s", flush=True)
                         last = received
+            if received != expected:
+                raise RuntimeError(f"Incomplete download: {received}/{expected} bytes; retry to resume")
         partial.rename(archive)
     target = args.out.resolve()
     with tarfile.open(archive) as tar:

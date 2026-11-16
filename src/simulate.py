@@ -87,7 +87,7 @@ def main() -> None:
     t_kf = np.arange(0.0, args.duration, args.keyframe_dt)
     t_imu = np.arange(0.0, args.duration - 0.02, args.imu_dt)
 
-    # True camera-from-body extrinsic and clock offset.
+    # True body-from-camera extrinsic and clock offset (T_wc = T_wb @ T_bc).
     T_bc_true = pose_from_rvec_t(np.array([0.03, -0.02, 0.05]), np.array([0.05, 0.02, 0.01]))
     dt_true = 0.012  # IMU clock is ahead of camera clock by 12 ms
 

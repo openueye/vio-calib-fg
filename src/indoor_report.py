@@ -13,6 +13,13 @@ import numpy as np
 
 
 def make_report(out: Path, summary: dict, aligned, truth, diagnostics: dict):
+    if aligned is None:
+        (out / "report.html").write_text(
+            '<!doctype html><meta charset="utf-8"><title>Indoor experiment failure</title>'
+            '<h1>实验未完成</h1><pre>' + html.escape(json.dumps(summary, ensure_ascii=False, indent=2)) + '</pre>',
+            encoding="utf-8",
+        )
+        return
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
     for poses, name in ((truth, "Motion-capture GT"), (aligned, "Stereo VO, SE(3) aligned")):
         axes[0].plot(poses[:, 0, 3], poses[:, 1, 3], label=name)

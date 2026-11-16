@@ -4,10 +4,9 @@ Factors:
   * visual relative pose between keyframes (6 residuals each)
   * gyro-integrated relative rotation between keyframes (3 residuals each)
 
-The camera-from-body rotation comes from calibrate.py; the translation is left
-at zero because it is not observable from visual relative poses alone (a
-constant right transform cancels in every relative pose). This limitation is
-reported explicitly.
+The body-from-camera rotation comes from calibrate.py; translation is fixed at
+zero. This prototype does not constrain/estimate extrinsic translation jointly
+with body motion using accelerometer or other positional observations.
 """
 from __future__ import annotations
 
@@ -114,7 +113,7 @@ def umeyama_alignment(est: np.ndarray, gt: np.ndarray) -> tuple[np.ndarray, np.n
     D = np.eye(3)
     if np.linalg.det(U @ Vt) < 0:
         D[-1, -1] = -1.0
-    R = U @ D @ Vt
+    R = Vt.T @ D @ U.T
     return R, mu_g - R @ mu_e
 
 
@@ -186,7 +185,7 @@ def main() -> None:
             "optimizer": info_oracle,
         },
         "limitations": [
-            "camera-from-body translation is fixed at zero; visual relative poses alone cannot observe it",
+            "body-from-camera translation is fixed at zero; this prototype does not estimate it",
             "no accelerometer/velocity factor; this is a rotation + visual pose graph, not a full VIO",
             "synthetic data, not EuRoC; no real camera images/feature tracking",
         ],

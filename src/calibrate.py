@@ -1,9 +1,9 @@
-"""Camera-IMU time offset, extrinsic rotation and gyro bias calibration.
+"""Synthetic camera-IMU time offset and extrinsic rotation calibration.
 
 The camera angular velocity is obtained from visual relative rotations. The IMU
-angular velocity is interpolated at t + dt; the residual
-    R_bc^T * (omega_imu(t + dt) - b_g) - omega_cam(t)
-is minimized over R_bc, dt and b_g.
+angular velocity is interpolated at t - dt; the residual
+    R_bc^T * omega_imu(t - dt) - omega_cam(t)
+is minimized over R_bc and dt. Gyro bias is assumed zero, not estimated.
 """
 from __future__ import annotations
 

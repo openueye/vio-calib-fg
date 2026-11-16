@@ -73,14 +73,25 @@ def main():
         status = "stopped at tracking failure" if failure else "completed selected interval"
     save_tum(args.out / "trajectory.tum", ns, poses)
     gt_ns, gt = dataset.groundtruth()
-    metrics, aligned, truth = evaluate(ns, poses, gt_ns, gt)
-    imu_summary, diagnostics = diagnose(dataset.imu_ns, dataset.gyro, ns, poses, gt_ns, gt)
+    evaluation_error = None
+    try:
+        metrics, aligned, truth = evaluate(ns, poses, gt_ns, gt)
+        imu_summary, diagnostics = diagnose(dataset.imu_ns, dataset.gyro, ns, poses, gt_ns, gt)
+    except ValueError as error:
+        if not failure:
+            raise
+        evaluation_error = str(error)
+        metrics, aligned, truth = {"evaluation_error": evaluation_error}, None, None
+        imu_summary, diagnostics = {}, {}
     summary = {
         "dataset": str(dataset.root.resolve()), "status": status,
+        "calibration_source": dataset.calibration_source, "groundtruth_source": dataset.groundtruth_source,
         "estimator": "external TUM trajectory" if args.trajectory else "OpenCV stereo KLT + PnP (no IMU fusion)",
         "configuration": {"start_s": args.start, "duration_s": args.duration, "stride": args.stride, "seed": 7},
         "selected_frames": len(selected), "estimated_frames": len(ns),
-        "frame_coverage": len(ns)/len(selected), "failure": failure,
+        "frame_coverage": len(ns)/len(selected) if not args.trajectory else None,
+        "time_span_coverage": float((ns[-1]-ns[0])/(selected[-1]-selected[0])) if len(ns) else 0.0,
+        "failure": failure, "evaluation_error": evaluation_error,
         "metrics": metrics, "imu_diagnostics": imu_summary,
         "processing_ms": {"p50": float(np.median(times)), "p95": float(np.percentile(times, 95))} if times else None,
         "environment": {"python": sys.version, "executable": sys.executable, "opencv": cv2.__version__, "numpy": np.__version__},
