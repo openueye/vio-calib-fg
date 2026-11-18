@@ -25,5 +25,5 @@
   - 远端完整基准（5 场景 × 3 seed + TUM VI）：clean dt 0.112 / 0.603 ms（offline / online），ATE 0.0871 → 0.0323 m；时偏阶跃失败率 66.7% → 33.3%；TUM VI room1 ATE 0.2250 → 0.1306 m
   - 远端 `calib_vision` 已构建（系统 OpenCV 4.5.4）；本机仍缺 OpenCV C++ 头文件，PCL 未安装
   - OpenCV 5.x 的 `stereoRectify` 在 EuRoC 路径触发 `gemm` 断言，`requirements.txt` 固定 `opencv-python-headless<5`
-  - 真实数据覆盖 TUM VI room1 / room2 两个房间；EuRoC 为可选扩展（旧 ETH 链接退役、Research Collection 429），不作为当前缺口
+  - 真实数据覆盖 TUM VI room1 / room2 两个房间；EuRoC 未接入：数据源不可用（旧 ETH 链接退役、Research Collection 429）
 - **相关**：[README.md](README.md)、[LEARNING.md](LEARNING.md)、[report.md](report.md)
