@@ -1,0 +1,59 @@
+# Online camera-IMU calibration benchmark configuration.
+#
+# The sequence is synthetic and deterministic per (scenario, seed).  Scenarios
+# are post-hoc mutations of the clean stream so their effect is measured
+# against the same underlying motion.
+sequence:
+  duration: 30.0          # seconds
+  keyframe_dt: 0.1        # 10 Hz visual relative poses
+  imu_dt: 0.005           # 200 Hz gyro
+  dt_true: 0.012          # seconds; IMU timestamp t is motion time t + dt
+  rvec_bc_true: [0.03, -0.02, 0.05]
+  b_g_true: [0.0, 0.0, 0.0]
+  rot_std: 0.002          # rad per visual keyframe interval
+  trans_std: 0.001        # m per visual keyframe interval
+  gyro_noise: 0.0005      # rad/s
+
+scenarios:
+  clean: {}
+  vibration:
+    ang_deg: 0.3
+    freq_hz: 10.0
+    trans_mm: 3.0
+    start_s: 10.0
+    duration_s: 5.0
+  thermal_drift:
+    drift_deg: 0.3
+  time_offset_step:
+    step_ms: 5.0
+    step_at_s: 15.0
+  frame_drop:
+    imu_frac: 0.2
+    vis_frac: 0.08
+
+seeds: [0, 1, 2]
+
+calibration:
+  estimate_bias: false    # set true for the optional 7-state estimator
+  init: kabsch            # closed-form angular-velocity alignment; or zero
+  window: 20              # keyframe intervals in the sliding window
+  marginalize: true       # keep a Gaussian summary of marginalized keyframes
+  forget: 0.99            # exponential forgetting of that summary (offset steps)
+  sigma_r: 0.01           # rad; residual normalizer
+  huber_k: 1.345
+  chi2_level: 0.99
+  damping: 1.0e-6
+  offline_max_iters: 30
+  online_max_iters: 8
+
+evaluation:
+  ate_stride: 10          # coarsen the pose graph only (calibration uses all keyframes)
+  success_dt_ms: 2.0
+  success_rot_deg: 1.0    # real stereo VO rotation noise is larger than synthetic
+  convergence_dt_ms: 3.0   # sustained band; success uses the tighter 2 ms
+  convergence_rot_deg: 2.0
+  steady_tail: 30         # keyframes used for steady-state dt error
+
+# Optional derived real clip (184 KB) produced by scripts/prepare_real_clip.py.
+# Missing file -> the real sequence is skipped with a note.
+real_asset: assets/tumvi_room1_20s.npz

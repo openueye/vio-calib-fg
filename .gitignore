@@ -5,6 +5,11 @@ data/
 results/indoor/
 results/indoor_*/
 results/indoor_index.html
+results/online_calib/
+
+# C++ build
+build/
+build_cmake/
 
 # python
 __pycache__/
@@ -19,3 +24,6 @@ env/
 *.log
 # job-search notes kept local only
 resume_bullets.md
+
+# Derived real-data assets are generated locally, not redistributed
+assets/*.npz

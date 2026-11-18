@@ -63,10 +63,14 @@ def optimize(
     R_bc: np.ndarray,
     dR_gyro: np.ndarray,
     x0: np.ndarray | None = None,
+    t_bc: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
     n = len(T_meas) + 1
     T_bc = np.eye(4)
     T_bc[:3, :3] = R_bc
+    if t_bc is not None:
+        # Fixed lever arm from a prior; the calibration itself does not estimate it.
+        T_bc[:3, 3] = np.asarray(t_bc, dtype=np.float64).reshape(3)
     if x0 is None:
         init = chain(T_meas, T0_body, T_bc)
         x0 = []

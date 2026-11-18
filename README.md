@@ -81,6 +81,39 @@ python scripts/run_all.py
 评测已修复刚体对齐的 SVD 旋转方向。旧“ATE 约减半”结论失效：正确对齐后，
 旋转标定未降低该仿真链式轨迹的 ATE，旋转 RPE 则改善。
 
+## 在线标定与退化评测
+
+滑动窗口 Gauss-Newton 估计时间偏移 `dt` 与旋转外参 `R_bc`（可选陀螺零偏 `b_g`），
+使用 Huber 核与 3 自由度卡方拒绝，并对边缘化信息做指数遗忘以跟踪偏移阶跃。
+外参平移不可观，固定为已知先验；`R_bc` 由角速度对齐（Kabsch）冷启动。
+链路为 uncalibrated／offline／online／ground-truth 四条，指标为收敛时间、
+稳态 `dt` 误差、旋转误差、ATE／RPE 和失败率。
+
+```powershell
+python scripts/run_online_benchmark.py --quick          # 冒烟
+python scripts/run_online_benchmark.py --jobs 8         # 全矩阵
+```
+
+配置见 `configs/online_calib.yaml`，输出 `results/online_calib/summary.md` 与
+`benchmark.json`。真实 TUM VI 片段由本地数据派生，不上传原始数据：
+
+```powershell
+python scripts/prepare_real_clip.py                     # 需要 data/indoor 与 results/indoor_dev
+```
+
+生成约 184 KB 的 `assets/tumvi_room1_20s.npz`，包含真实双目 VO 相对位姿、200 Hz 陀螺、
+真值位姿和相机链外参。TUM VI 相机与 IMU 共硬件时钟，故 `dt_true = 0`，实为时间偏移零假设检验。
+
+C++/Eigen 核心（SO(3)、残差、解析 Jacobian、Huber／卡方、批标定）通过 pybind11 暴露：
+
+```powershell
+cmake -S . -B build -Dpybind11_DIR=$(python -m pybind11 --cmakedir)
+cmake --build build -j
+python -m pytest -q          # 含 C++/Python 数值对齐（模块未构建时跳过）
+```
+
+远端一键复现：`bash run_remote.sh`（只操作 `~/vio-calib` 与 `~/vio-calib-env`）。
+
 ## 文件与边界
 
 - `src/indoor_data.py`：EuRoC 格式与 TUM VI 官方导出格式读取、双目校正。

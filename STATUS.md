@@ -1,0 +1,29 @@
+# 状态 — vio-calib-fg
+
+- **阶段**：研究原型 / L2（真实室内数据、仿真链路和在线标定原型均跑通；没有在线 Demo）
+- **最后复核**：2026-11-18，远端（AutoDL A100）完成完整基准、C++ 构建与全部测试
+- **环境**：Conda `vio-calib`，Python 3.10.22；OpenCV 4.12、NumPy 2.2.6、SciPy 1.15
+- **入口**：
+  - 真实室内评测：`python scripts/run_indoor_benchmark.py`
+  - 在线标定矩阵：`python scripts/run_online_benchmark.py --jobs 8`
+  - 真实片段资产：`python scripts/prepare_real_clip.py`
+  - C++/Eigen：`cmake -S . -B build -Dpybind11_DIR=$(python -m pybind11 --cmakedir)`
+  - 远端一键：`bash run_remote.sh`
+  - 测试：`python -m pytest -q`
+- **已验证结果**：
+  - 本机与远端 pytest：45 passed（含 C++/Python 对齐与 alignment_dump）；CTest 1/1
+  - 合成 clean：offline dt 误差 0.112 ms、旋转 0.181°；online 0.603 ms、0.243°
+  - 真实 TUM VI room1 20 s：offline dt −0.055 ms、旋转 0.694°；online 0.279 ms、0.788°
+  - 轨迹 ATE：clean 未标定 0.0871 m → 标定 0.0333 m；room1 未标定 0.2250 m → 0.1306 m；room2 未标定 0.2440 m → 在线 0.1043 m（真值链 0.1051 m）
+  - 第二真实序列 TUM VI room2：在线 dt 0.053 ms、旋转 0.506°、收敛 0.2 s；独立 stereo VO 在 14.7 s 跟踪失败，覆盖 74%，室内 ATE 0.1075 m
+  - C++：Zig 0.13 + Eigen 3.4 + CMake 构建；残差/Jacobian/批标定对齐 < 1e-7
+- **数据 / 权重**：原始 TUM VI 数据与派生 `.npz` 均不入库（TUM VI 为非商业/相同方式共享许可）；用 `scripts/prepare_real_clip.py` 在本地生成 `assets/tumvi_room1_20s.npz`
+- **已知限制**：
+  - 实验室离线／半在线，不是量产在线标定
+  - 无加速度计、速度、尺度或零偏耦合；外参平移固定先验
+  - 无实时前端、回环、嵌入式部署；单一房间 20 s 不代表跨场景泛化
+  - 远端完整基准（5 场景 × 3 seed + TUM VI）：clean dt 0.112 / 0.603 ms（offline / online），ATE 0.0871 → 0.0323 m；时偏阶跃失败率 66.7% → 33.3%；TUM VI room1 ATE 0.2250 → 0.1306 m
+  - 远端 `calib_vision` 已构建（系统 OpenCV 4.5.4）；本机仍缺 OpenCV C++ 头文件，PCL 未安装
+  - OpenCV 5.x 的 `stereoRectify` 在 EuRoC 路径触发 `gemm` 断言，`requirements.txt` 固定 `opencv-python-headless<5`
+  - 真实数据覆盖 TUM VI room1 / room2 两个房间；EuRoC 为可选扩展（旧 ETH 链接退役、Research Collection 429），不作为当前缺口
+- **相关**：[README.md](README.md)、[LEARNING.md](LEARNING.md)、[report.md](report.md)

@@ -52,15 +52,114 @@ ATE 计算已修正 SVD 对齐旋转方向，旧“ATE 减半”结论撤回。
 标定链式 ATE 未改善，旋转 RPE 改善；应分别理解对齐位置误差和 body 相对旋转误差。
 真值旋转外参结果仅为仿真参照。
 
+## 在线标定：方法与评测契约
+
+新增滑动窗口 Gauss-Newton，状态为 `R_bc`（旋转向量）与 `dt`，可选陀螺零偏 `b_g`。
+每个关键帧区间用视觉相对旋转构造预测体旋转，与按 `dt` 平移后积分陀螺得到的体旋转比较；
+残差经 `sigma_r` 归一化。旋转 Jacobian 使用 `Jr^-1(r) R_gyro^T (R_pred-I) Jl(phi)`，
+零偏 Jacobian 沿指数乘积递推，`dt` 使用离散积分器中心差分。鲁棒层为 Huber 核加
+3 自由度卡方硬拒绝；窗口外关键帧折叠为高斯先验，并可按指数遗忘以跟踪偏移阶跃。
+`R_bc` 冷启动使用视觉／陀螺角速度的 Kabsch 对齐，避免大角度外参落入局部极小。
+外参平移在仅有相对旋转观测时不可观，固定为已知先验；不含加速度计、速度或零偏耦合。
+四条链为 uncalibrated（`R=I, dt=0`）、offline（全序列批优化）、online（仅过去数据）、
+ground truth（生成参数或相机链先验）。轨迹由同一批处理位姿图生成，用于比较标定值，
+不是实时估计器。
+
+## 在线标定：合成退化场景
+
+30 s、10 Hz 关键帧、200 Hz 陀螺，3 个随机种子取中位数；失败定义为
+`|dt 误差| > 2 ms` 或旋转误差 `> 1°`，online 还要求持续收敛。
+场景注入：振动（10 Hz、0.3°、5 s 突发）、热漂（0.3° 线性零偏斜坡）、
+时间偏移阶跃（15 s 处 +5 ms）、帧丢失（20% IMU、8% 视觉关键帧）。
+
+| 场景 | 链 | dt 误差 [ms] | 旋转误差 [°] | 收敛 [s] | 稳态 dt 误差 [ms] | 失败率 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| clean | uncalibrated | −12.000 | 3.532 | — | — | 100% |
+| clean | offline | 0.112 | 0.181 | — | — | 0% |
+| clean | online | 0.603 | 0.243 | 2.90 | 1.472 | 0% |
+| clean | ground truth | 0 | 0 | — | — | 0% |
+| vibration | offline | −1.273 | 0.181 | — | — | 0% |
+| vibration | online | −0.389 | 0.313 | 20.90 | 0.647 | 33% |
+| thermal drift | offline | 0.415 | 0.218 | — | — | 0% |
+| thermal drift | online | 0.966 | 0.344 | 2.90 | 1.902 | 0% |
+| time-offset step | offline | −2.409 | 0.199 | — | — | 67% |
+| time-offset step | online | −0.350 | 0.238 | 23.70 | 0.635 | 33% |
+| frame drop | offline | −0.536 | 0.164 | — | — | 0% |
+| frame drop | online | −0.513 | 0.128 | 5.30 | 2.018 | 33% |
+
+阶跃场景中常量 offline 拟合落后于最终 17 ms 真值，online 依靠遗忘在阶跃后重新收敛；
+这是在线链相对离线链的唯一结构性优势。振动突发主要抬高 online 收敛时间；
+帧丢失使稳态方差增大。
+
+轨迹（同一批处理位姿图，SE(3) 对齐，不拟合尺度）：
+
+| 场景 | 链 | ATE [m] | 1 s RPE 平移 [m] | 1 s RPE 旋转 [°] |
+| --- | --- | ---: | ---: | ---: |
+| clean | uncalibrated | 0.0871 | 0.0925 | 0.9632 |
+| clean | offline | 0.0333 | 0.0095 | 0.3084 |
+| clean | online | 0.0323 | 0.0102 | 0.3110 |
+| clean | ground truth | 0.0319 | 0.0093 | 0.3122 |
+| vibration | offline | 0.0320 | 0.0122 | 0.3022 |
+| vibration | online | 0.0307 | 0.0138 | 0.3093 |
+| time-offset step | offline | 0.0333 | 0.0096 | 0.3163 |
+| time-offset step | online | 0.0318 | 0.0103 | 0.3322 |
+| thermal drift | online | 0.0388 | 0.0115 | 0.3454 |
+| frame drop | online | 0.0331 | 0.0116 | 0.3273 |
+
+未标定链的 ATE／RPE 显著更差；标定链接近 ground truth。
+完整表见生成物 `results/online_calib/summary.md`（不入库）。
+
+## 真实 TUM VI room1 片段
+
+`scripts/prepare_real_clip.py` 从本机 TUM VI room1 数据和既有双目 VO 轨迹派生
+184 KB 的 `assets/tumvi_room1_20s.npz`（本地生成，不入库），不上传原始 1.59 GiB 数据。视觉相对位姿是
+真实双目 KLT＋PnP 前端输出；相机与 IMU 共硬件时钟，故 `dt_true = 0`，本片段检验
+时间偏移零假设与相机链旋转外参（约 179.7°，整流相机与 IMU 反向安装）。
+`R_bc` 由 Kabsch 从 180° 外初始化到 0.78°，再优化到 0.69°。
+
+| 链 | dt 误差 [ms] | 旋转误差 [°] | 收敛 [s] | 稳态 dt 误差 [ms] | ATE [m] | 1 s RPE 平移 [m] | 1 s RPE 旋转 [°] |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| uncalibrated | — | 179.666 | — | — | 0.2250 | 1.2156 | 30.4435 |
+| offline | −0.055 | 0.694 | — | — | 0.1306 | 0.0507 | 0.6279 |
+| online | 0.279 | 0.788 | 1.30 | 0.285 | 0.1305 | 0.0510 | 0.6353 |
+| ground truth | 0 | 0 | — | — | 0.1308 | 0.0483 | 0.6280 |
+
+未标定链因 180° 外参错误而轨迹发散；标定后 ATE 与双目 VO 原始水平一致（约 0.13 m）。
+该片段只覆盖一个房间的 20 s，不能证明跨场景泛化。
+
+## C++/Eigen 核心
+
+`cpp/calib_core` 逐行镜像 Python 的 SO(3) exp/log、左右 Jacobian、陀螺积分、
+残差与解析 Jacobian、Huber／卡方权重及批标定；pybind11 模块为 `calib_core`。
+`cpp/vision` 可选封装 OpenCV 去畸变、KLT 与 PnP RANSAC；PCL 仅做 CMake 探测，
+没有 PCL 算法，未安装时跳过。构建入口为根目录 `CMakeLists.txt`、`Makefile` 和
+`Dockerfile`。
+
+本机用 Zig 0.13 C++ 驱动、Eigen 3.4.0 和 CMake 4.4 完成 CMake 构建：
+`calib_core_test`、`alignment_dump` 与 `calib_core.cp310-win_amd64.pyd` 均生成，
+CTest 1/1 通过。Python 侧 5 项 pybind 对齐测试与 2 项独立可执行文件对齐测试通过：
+残差差 < 1e-9、Jacobian 差 < 1e-7、批标定 dt 差 < 1e-7，满足 < 1e-6 要求。
+本机没有 OpenCV C++ 开发头文件，`calib_vision` 未构建；2026-11-18 在 Linux
+A100 实例上用系统 `libopencv-dev 4.5.4` 已成功构建并通过 CTest。PCL 未安装，
+故按要求跳过，不声称 PCL 功能。
+远端 `run_remote.sh` 已提供（同步、venv、pip、CMake、CTest、pytest、基准、回传）；
+2026-11-18 远端已补跑完整基准、C++ 构建与 45 项测试（见 `STATUS.md`）。上表仍为
+本机当时的确定性结果，两者数值一致。
+
 ## 验证与限制
 
 针对性测试覆盖全局旋转消除、尺度错误保留、反射排除、插值边界、纳秒时间戳往返、
 真值覆盖率、重复时间戳拒绝、陀螺积分和零偏、PnP 位姿方向、无纹理及特征不足时的失败。
-原仿真完整链路和两个真实片段均已运行。图像与轨迹 PNG 已查看；HTML 为生成的本地报告，
-未以此声称已经做浏览器交互验收。
+新增测试覆盖 SO(3) exp/log 与左右 Jacobian、解析 Jacobian 对中心差分、Huber／卡方权重、
+批标定与在线收敛、时间偏移阶跃跟踪、退化场景确定性与对齐、四链指标聚合。
+本机完整 `pytest` 为 45 passed，包含 CMake 构建后的 C++/Python 数值对齐；
+CTest 1/1 通过。原仿真完整链路和两个真实片段均已运行。图像与轨迹 PNG 已查看；
+HTML 为生成的本地报告，未以此声称已经做浏览器交互验收。
 
-没有实现完整 VIO、加速度计融合、速度／零偏状态、回环、在线标定或嵌入式部署，
-没有运行 OpenVINS／VINS／ORB-SLAM3。仿真外参平移固定为零，模型没有完整惯性位置约束。
-同一房间两个片段不能证明跨场景泛化。
+**边界：这是实验室离线／半在线研究原型，不是量产在线标定。** 标定只消费预计算视觉
+相对旋转和陀螺，不含加速度计、速度、尺度或零偏耦合；外参平移固定为先验，不参与估计；
+无实时图像前端、无嵌入式部署、无回环。轨迹 ATE／RPE 来自批处理位姿图，只用于比较
+标定值。真实片段 `dt_true = 0` 是零假设检验而非已知非零偏移的恢复；同一房间 20 s
+不能证明跨场景泛化。没有运行 OpenVINS／VINS／ORB-SLAM3。
 
 复现见 [README](README.md)，学习见 [LEARNING](LEARNING.md)，报告见 [总览](results/indoor_index.html)。
